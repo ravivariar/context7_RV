@@ -5,7 +5,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.ravivariar.spenplayback'
+        applicationId 'com.ravivariar.spenplayback.mvp'
         minSdk 23
         targetSdk 36
         versionCode 2
