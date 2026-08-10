@@ -21,75 +21,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Generate Android project
-        shell: bash
-        run: |
-          set -e
-          mkdir -p spen/app/src/main/java/com/ravivariar/spenplayback spen/app/src/main/res/values
-          cat > spen/settings.gradle <<'EOF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-          rootProject.name='SPenPlaybackMVP'
-          include ':app'
-          EOF
-          cat > spen/build.gradle <<'EOF'
-          plugins { id 'com.android.application' version '8.13.2' apply false }
-          EOF
-          cat > spen/gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=false
-          EOF
-          cat > spen/app/build.gradle <<'EOF'
-          plugins { id 'com.android.application' }
-          android {
-            namespace 'com.ravivariar.spenplayback'
-            compileSdk 36
-            defaultConfig { applicationId 'com.ravivariar.spenplayback'; minSdk 23; targetSdk 36; versionCode 1; versionName '0.1.0' }
-          }
-          EOF
-          cat > spen/app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application android:theme="@style/AppTheme" android:label="S Pen Playback">
-              <activity android:name=".MainActivity" android:exported="true">
-                <intent-filter>
-                  <action android:name="android.intent.action.MAIN" />
-                  <category android:name="android.intent.category.LAUNCHER" />
-                </intent-filter>
-              </activity>
-            </application>
-          </manifest>
-          EOF
-          cat > spen/app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-            <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-              <item name="android:fontFamily">sans</item><item name="android:colorAccent">#3157D5</item>
-              <item name="android:statusBarColor">#FFFFFF</item><item name="android:navigationBarColor">#FFFFFF</item>
-            </style>
-          </resources>
-          EOF
-          cat > spen/app/src/main/java/com/ravivariar/spenplayback/MainActivity.java <<'EOF'
-          package com.ravivariar.spenplayback;
-          import android.app.*; import android.os.*; import android.graphics.*; import android.view.*; import android.widget.*; import java.util.*; import org.json.*; import android.content.*;
-          public class MainActivity extends Activity {
-            InkView ink; Button play, erase, speed; SeekBar seek; TextView time; boolean seeking=false;
-            int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);} Button b(String s){Button x=new Button(this);x.setText(s);x.setAllCaps(false);return x;}
-            String tm(long m){long s=m/1000;return String.format(Locale.US,"%02d:%02d",s/60,s%60);} String sp(float x){return x==0.5f?"0.5×":x==1?"1×":x==2?"2×":"4×";}
-            public void onCreate(Bundle z){super.onCreate(z); LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setBackgroundColor(Color.WHITE);TextView t=new TextView(this);t.setText("S Pen Playback  •  MVP 0.1");t.setTextSize(18);t.setPadding(dp(12),dp(8),dp(12),dp(6));r.addView(t);HorizontalScrollView hs=new HorizontalScrollView(this); LinearLayout bar=new LinearLayout(this);hs.addView(bar);r.addView(hs);Button undo=b("Undo"),clear=b("Clear"),save=b("Save"),load=b("Load"); erase=b("Eraser: Off");play=b("Play");speed=b("1×"); for(Button q:new Button[]{undo,clear,erase,save,load,play,speed})bar.addView(q);LinearLayout pr=new LinearLayout(this);pr.setGravity(Gravity.CENTER_VERTICAL); seek=new SeekBar(this);seek.setMax(1000);pr.addView(seek,new LinearLayout.LayoutParams(0,dp(44),1));time=new TextView(this);time.setText("00:00 / 00:00");time.setPadding(dp(8),0,dp(8),0);pr.addView(time);r.addView(pr);TextView h=new TextView(this);h.setText("Write with S Pen on the unfolded screen. Finger input is ignored for palm rejection.");h.setTextColor(Color.GRAY);h.setTextSize(12);h.setPadding(dp(12),0,dp(12),dp(6));r.addView(h);ink=new InkView(this);r.addView(ink,new LinearLayout.LayoutParams(-1,0,1));setContentView(r);undo.setOnClickListener(v->ink.undo());clear.setOnClickListener(v->ink.clearAll());erase.setOnClickListener(v->{erase.setText(ink.toggleEraser()?"Eraser: On":"Eraser: Off");});save.setOnClickListener(v->Toast.makeText(this,ink.save()?"Saved locally":"Save failed",Toast.LENGTH_SHORT).show());load.setOnClickListener(v->Toast.makeText(this,ink.load()?"Loaded":"No saved note",Toast.LENGTH_SHORT).show());play.setOnClickListener(v->{if(ink.playing)ink.pause();else ink.play();});speed.setOnClickListener(v->{speed.setText(sp(ink.nextSpeed()));});seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean f){if(f){seeking=true;ink.seek(p/1000f);}}public void onStartTrackingTouch(SeekBar s){seeking=true;ink.pause();}public void onStopTrackingTouch(SeekBar s){seeking=false;}});ink.listener=(p,d,on)->{runOnUiThread(()->{if(!seeking)seek.setProgress(d==0?0:(int)(1000.0*p/d));time.setText(tm(p)+" / "+tm(d));play.setText(on?"Pause":"Play");});}; ink.notifyL();}
-          }
-          class InkView extends View {
-            static class P{float x,y,p;long t;P(float a,float b,float c,long d){x=a;y=b;p=c;t=d;}} static class S{ArrayList<P> p=new ArrayList<>();} interface L{void u(long p,long d,boolean on);} L listener; ArrayList<S> ss=new ArrayList<>(); S cur; Paint pen=new Paint(1),grid=new Paint(1); boolean eraser=false,playing=false,playMode=false; float speed=1;long pos=0,start=0,eventStart=0,timelineStart=0,lastEvent=-1;SharedPreferences prefs;Runnable frame=new Runnable(){public void run(){if(!playing)return;pos=Math.min(duration(),Math.round((SystemClock.uptimeMillis()-start)*speed));invalidate();notifyL();if(pos>=duration()){playing=false;notifyL();}else postOnAnimation(this);}};
-            InkView(Context c){super(c);setBackgroundColor(Color.rgb(252,252,252));pen.setColor(Color.rgb(20,20,25));pen.setStrokeCap(Paint.Cap.ROUND);pen.setStrokeJoin(Paint.Join.ROUND);grid.setColor(Color.rgb(232,232,236));grid.setStrokeWidth(dp(1));prefs=c.getSharedPreferences("spen_mvp",0);} float dp(float v){return v*getResources().getDisplayMetrics().density;} float cl(float v){return Math.max(0,Math.min(1,v));} long duration(){if(cur!=null&&!cur.p.isEmpty())return cur.p.get(cur.p.size()-1).t;if(ss.isEmpty())return 0;S s=ss.get(ss.size()-1);return s.p.isEmpty()?0:s.p.get(s.p.size()-1).t;} void notifyL(){if(listener!=null)listener.u(pos,duration(),playing);} protected void onDraw(Canvas c){super.onDraw(c);for(float y=dp(32);y<getHeight();y+=dp(32))c.drawLine(0,y,getWidth(),y,grid);if(playMode){for(S s:ss)draw(c,s,pos);}else{for(S s:ss)draw(c,s,Long.MAX_VALUE);if(cur!=null)draw(c,cur,Long.MAX_VALUE);}}
-            void draw(Canvas c,S s,long until){if(s.p.size()==1){P a=s.p.get(0);if(a.t<=until){Paint d=new Paint(pen);d.setStyle(Paint.Style.FILL);c.drawCircle(a.x*getWidth(),a.y*getHeight(),width(a.p)/2,d);}return;}for(int i=1;i<s.p.size();i++){P a=s.p.get(i-1),b=s.p.get(i);if(a.t>until)break;float ex=b.x,ey=b.y,ep=b.p;if(b.t>until){float f=cl((until-a.t)/(float)Math.max(1,b.t-a.t));ex=a.x+(b.x-a.x)*f;ey=a.y+(b.y-a.y)*f;ep=a.p+(b.p-a.p)*f;}pen.setStrokeWidth(width((a.p+ep)/2));c.drawLine(a.x*getWidth(),a.y*getHeight(),ex*getWidth(),ey*getHeight(),pen);if(b.t>until)break;}} float width(float p){return dp(3.2f)*(0.45f+1.15f*cl(p));}
-            public boolean onTouchEvent(MotionEvent e){int tool=e.getToolType(0);boolean stylus=tool==MotionEvent.TOOL_TYPE_STYLUS||tool==MotionEvent.TOOL_TYPE_ERASER;if(!stylus)return false;int a=e.getActionMasked();if(a==MotionEvent.ACTION_DOWN){requestUnbufferedDispatch(e);pause();playMode=false;pos=duration();}boolean er=eraser||tool==MotionEvent.TOOL_TYPE_ERASER||(e.getButtonState()&MotionEvent.BUTTON_STYLUS_PRIMARY)!=0;if(er){if(a==0||a==2)erase(e.getX(),e.getY());return true;}if(a==0){cur=new S();eventStart=e.getEventTime();long gap=lastEvent<0?(ss.isEmpty()?0:220):Math.min(5000,Math.max(0,e.getEventTime()-lastEvent));timelineStart=duration()+gap;hist(e);add(e.getX(),e.getY(),e.getPressure(),e.getEventTime());return true;}if(a==2&&cur!=null){hist(e);add(e.getX(),e.getY(),e.getPressure(),e.getEventTime());return true;}if((a==1||a==3)&&cur!=null){hist(e);add(e.getX(),e.getY(),e.getPressure(),e.getEventTime());if(!cur.p.isEmpty())ss.add(cur);cur=null;lastEvent=e.getEventTime();pos=duration();invalidate();notifyL();return true;}return true;}
-            void hist(MotionEvent e){for(int i=0;i<e.getHistorySize();i++)add(e.getHistoricalX(0,i),e.getHistoricalY(0,i),e.getHistoricalPressure(0,i),e.getHistoricalEventTime(i));}void add(float x,float y,float p,long t){if(cur==null||getWidth()==0||getHeight()==0)return;cur.p.add(new P(cl(x/getWidth()),cl(y/getHeight()),cl(p),timelineStart+Math.max(0,t-eventStart)));invalidate();}void erase(float x,float y){float r=dp(28),r2=r*r;for(int i=ss.size()-1;i>=0;i--){for(P p:ss.get(i).p){float dx=p.x*getWidth()-x,dy=p.y*getHeight()-y;if(dx*dx+dy*dy<=r2){ss.remove(i);lastEvent=-1;pos=duration();invalidate();notifyL();return;}}}} boolean toggleEraser(){return eraser=!eraser;}void undo(){pause();playMode=false;if(!ss.isEmpty())ss.remove(ss.size()-1);lastEvent=-1;pos=duration();invalidate();notifyL();}void clearAll(){pause();playMode=false;ss.clear();cur=null;lastEvent=-1;pos=0;invalidate();notifyL();}void play(){if(duration()==0)return;if(!playMode||pos>=duration())pos=0;playMode=true;playing=true;start=SystemClock.uptimeMillis()-Math.round(pos/speed);removeCallbacks(frame);postOnAnimation(frame);notifyL();}void pause(){if(!playing)return;playing=false;removeCallbacks(frame);notifyL();}void seek(float f){playMode=true;pos=Math.round(cl(f)*duration());invalidate();notifyL();}float nextSpeed(){speed=speed==0.5f?1:speed==1?2:speed==2?4:0.5f;if(playing)start=SystemClock.uptimeMillis()-Math.round(pos/speed);return speed;}
-            boolean save(){try{JSONArray all=new JSONArray();for(S s:ss){JSONArray pts=new JSONArray();for(P p:s.p){JSONArray q=new JSONArray();q.put(p.x);q.put(p.y);q.put(p.p);q.put(p.t);pts.put(q);}all.put(pts);}return prefs.edit().putString("note",all.toString()).commit();}catch(Exception e){return false;}} boolean load(){String x=prefs.getString("note",null);if(x==null)return false;try{JSONArray all=new JSONArray(x);ArrayList<S> n=new ArrayList<>();for(int i=0;i<all.length();i++){S s=new S();JSONArray pts=all.getJSONArray(i);for(int j=0;j<pts.length();j++){JSONArray q=pts.getJSONArray(j);s.p.add(new P((float)q.getDouble(0),(float)q.getDouble(1),(float)q.getDouble(2),q.getLong(3)));}n.add(s);}pause();playMode=false;ss=n;cur=null;lastEvent=-1;pos=duration();invalidate();notifyL();return true;}catch(Exception e){return false;}}
-          }
-          EOF
       - name: Build APK
-        working-directory: spen
+        working-directory: spen-v02
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: spen-playback-mvp-apk
-          path: spen/app/build/outputs/apk/debug/app-debug.apk
+          name: spen-playback-mvp-0.2-apk
+          path: spen-v02/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
